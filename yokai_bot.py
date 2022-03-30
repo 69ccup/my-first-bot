@@ -1,7 +1,7 @@
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, MessageHandler, Filters, CallbackContext
 from key import TOKEN
-from connect_to_bd import stickers, replies, insert_sticker, in_database
+from connect_to_bd import stickers, replies, insert_sticker, in_database, insert_users
 
 
 def main():
@@ -17,8 +17,8 @@ def main():
     static_handler = MessageHandler(Filters.text('Статистика, статистика'), static)
     sticker_handler = MessageHandler(Filters.sticker, reply_sticker)
     say_smth_handler = MessageHandler(Filters.text, say_smth)
-    new_sticker_handler = MessageHandler(Filters.sticker, new_sticker)
-    text_handler = MessageHandler(Filters.text, new_keyword)
+    new_sticker_handler = MessageHandler(Filters.text('Добавь, добавь'), new_sticker)
+    text_handler = MessageHandler(Filters.text, meet)
 
     dispatcher.add_handler(new_sticker_handler)
     dispatcher.add_handler(text_handler)
@@ -39,7 +39,7 @@ def do_echo(update: Update, context: CallbackContext) -> None:
     telegram_id = update.message.chat_id
     username = update.message.from_user.username
     text = update.message.text
-    update.message.reply_text(text=f'{text}')
+    update.message.reply_text(text)
     print(username, ':', text)
 
 
@@ -87,6 +87,7 @@ def reply_sticker(update: Update, context: CallbackContext) -> None:
 
 
 def say_smth(update: Update, context: CallbackContext) -> None:
+    global keyword
     name = update.message.from_user.first_name
     text = update.message.text
     for keyword in stickers:
@@ -95,7 +96,7 @@ def say_smth(update: Update, context: CallbackContext) -> None:
                 update.message.reply_sticker(stickers[keyword])
             if replies[keyword]:
                 update.message.reply_text(replies[keyword])
-    else:
+    if keyword:
         do_echo(update, context)
 
 
@@ -103,12 +104,12 @@ def new_sticker(update: Update, context: CallbackContext) -> None:
     sticker_id = update.message.sticker.file_id
     for keyword in stickers:
         if sticker_id == stickers[keyword]:
-            update.message.reply_text('у меня тоже такой есть')
+            update.message.reply_text('У меня такой есть')
             update.message.reply_sticker(sticker_id)
             break
     else:
         context.user_data['new_sticker'] = sticker_id
-        update.message.reply_text('введи ключевое слово')
+        update.message.reply_text('Введи ключевое слово')
 
 
 def new_keyword(update: Update, context: CallbackContext) -> None:
@@ -122,38 +123,85 @@ def new_keyword(update: Update, context: CallbackContext) -> None:
 
 
 def meet(update: Update, context: CallbackContext):
-    ''' start to add in database:
-        id
-        name
-        sex
-        grade
-    '''
-    telegram_id = update.message.from_user.id
-    if in_database(telegram_id):
-        pass
+    """
+    Старт диалога по добавлению пользователя в БД.
+    Будут собраны последовательно:
+        id пользователя
+        имя
+        пол
+        класс
+    """
+    user_id = update.message.from_user.id
+    if in_database(user_id):
+        pass  # выход из диалога
+    ask_name(update, context)
+
+
+def ask_name(update: Update, context: CallbackContext) -> None:
+    """
+    Спрашивает имя у пользователя
+    """
     update.message.reply_text(
-        'Привет имя введи пжпжпж'
+        'Привет, тебя ещё нет в моей Базе Данных\n'
+        'Давай знакомиться\n'
+        'Как тебя зовут?'
     )
-    
+    ask_sex(update, context)
 
 
-def ask_name(update: Update, context: CallbackContext):
-    pass
+def ask_sex(update: Update, context: CallbackContext) -> None:
+    """
+    Спрашивает у пользователя его пол
+    """
+    name = update.message.text
+    context.user_data['name'] = name
+    buttons = [
+        ['Мужской', 'Женский'],
+    ]
+    update.message.reply_text(
+        text=f'''
+        Привет, {name}\n
+        Какой у тебя пол?\n
+        Выбери один из вариантов
+        ''',
+        reply_markup=ReplyKeyboardMarkup(
+            buttons,
+            resize_keyboard=True,
+            one_time_keyboard=True,
 
-
-def ask_sex(update: Update, context: CallbackContext):
-    pass
-
-
-def ask_grade(update: Update, context: CallbackContext):
-    pass
+        )
+    )
 
 
 def greet(update: Update, context: CallbackContext):
-    pass
+    '''
 
+    Зписывает в БД:
+        user_id(из сообщения)
+        sex
+        grade
+        name
+
+
+    '''
+    user_id = update.message.from_user.id
+    sex = context.user_data['sex']
+    grade = update.message.from_user.text
+    name = context.user_data['name']
+    insert_users(user_id, name,sex, grade)
+    update.message.reply_text(
+        f'Новая запись в БД'
+        f' {name}'
+        f'{sex}'
+        f'{user_id}'
+        f'{grade}'
+
+
+    )
 
 
 
 if __name__ == '__main__':
     main()
+    # test functions
+    insert_users(12345,'misha pevko','M', '10')
