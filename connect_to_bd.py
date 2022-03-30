@@ -1,6 +1,25 @@
 from openpyxl import load_workbook
 
 
+def insert_users(*args):
+    """
+    вносит нового юзера в БД
+
+    :param args: принимает произволное колво аргументов
+    """
+
+    user_id = args[0]
+    name = args[1]
+    sex = args[2]
+    grade = args[3]
+    row = users_page.max_row + 1
+    users_page.cell(row=row, column=1).value =user_id
+    users_page.cell(row=row, column=2).value = name
+    users_page.cell(row=row, column=3).value = sex
+    users_page.cell(row=row, column=4).value = grade
+    bd.save(database_filename)
+
+
 def insert_sticker(keyword, sticker_id=None, reply_text=None):
     row = stickers_page.max_row + 1
     stickers_page.cell(row=row, column=1).value = keyword
@@ -15,7 +34,6 @@ def in_database(user)-> bool:
     '''
     Return True if user_id is already in database
     '''
-    users_page = bd['Users']
     for row in range(2, users_page.max_row + 1):
         if user == users_page.cell(row=row, column=1).value:
             return True
@@ -27,7 +45,9 @@ def in_database(user)-> bool:
 database_filename = 'DTbot.xlsx'
 bd = load_workbook(database_filename)
 stickers_page = bd['Stickers']
+users_page = bd['Users']
 
+users = {}
 stickers = {}
 replies = {}
 
